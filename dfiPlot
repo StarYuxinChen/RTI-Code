@@ -1,0 +1,66 @@
+function [  ] = dfiPlot( dfi )
+%DFIPLOT Plots a DFI image
+%   Plots a DFI image as loaded by DFI2MAT
+
+% Now to plot the image
+if isfield(dfi,'imageList')
+    for k=1:length(dfi.imageList)
+        image(dfi.(dfi.imageList{k}),'CDataMapping','scaled');
+        if isfield(dfi,'imageRange');
+            caxis(dfi.imageRange);
+            
+            if dfi.imageRange(2) < max(dfi.(dfi.imageList{k})(:))
+                warning(['Values of ' dfi.imageList{k} ...
+                    ' above DFI image range.']);
+            end
+            
+            if dfi.imageRange(1) > min(dfi.(dfi.imageList{k})(:))
+                warning(['Values of ' dfi.imageList{k} ...
+                    ' below DFI image range.']);
+            end
+        end
+        
+        if isfield(dfi,'colormap')
+            colormap(dfi.colormap);
+        end
+        
+        hold on
+    end
+end
+
+% And the vectors
+if isfield(dfi,'vectors')
+    for k=1:length(dfi.vectors)
+        
+        % Get components of vector field
+        components = fieldnames(dfi.vectors{k});
+        components = components(~ismember(components,{'x' 'y'}));
+        
+        if length(components) < 2
+            warning(['Not enough components to plot vector field ' ...
+                num2str(k)]);
+        else
+            if length(components) > 2
+                warning(['Only plotting first two components of vector field'...
+                    num2str(k)]);
+            end
+            
+            % Plot vectors (u, v)
+            spacing = 16; %Spacing between vectors
+            [x, y]=size(dfi.vectors{k}.(components{1})); 
+            X = 1:spacing:x;
+            Y = 1:spacing:y;
+            
+            % See above for component ordering
+            quiver(Y, X, dfi.vectors{k}.(components{1})(X, Y), ...
+                dfi.vectors{k}.(components{2})(X, Y));
+            
+            hold on;
+        end
+    end
+end
+
+hold off;
+end
+
+
