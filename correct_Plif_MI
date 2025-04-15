@@ -1,0 +1,149 @@
+function [corr,mapped,streakRM,illFix] = correct_Plif_MI(rhoI,back,x_map_file,y_map_file,w,h,C0,streaks,synthetic_laser, Level, Sigma, LS, LE,resize,fftPad)    
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Inputs:
+% 'rhoI': LIF image for correction
+% 'x_map_file, y_map_file': result of coord_system_create_mapping_array [:,:,0] & [:,:,1] saved as seperate text files
+% 'h,w': hieght and width of matricies stored in x_map_file and y_map_file and rhoI
+% 'C0': concentration of dye in background image C0 \in (0,1)
+% 'streaks': true or false for removal on streaks in rhoI
+% 'synthetic_laser': true or false to use generated laser sheet to correct image (false uses back) 
+% 'Level': number of levels used in wavelet decomposition for streak filter
+% 'Sigma':  standard deviation of filter applied to fft coeffs of wavelet tranform 
+% 'LS': first level of wavelet transform you wish to filter
+% 'LE': last level of wavelet transfomr you with to filter 
+% 'resize': factor to increse image size by, help to seperate features onto different levels of wavelet transform
+% 'fftPad': factor to determine size of padding for wavelets before fft is applied 
+% for more information on wavelet filter see munch et al. 2009: 
+% "Stripe and ring artifact removal with combined wavelet — Fourier filtering"
+% Output: 
+% 'corr': corrected image
+% 'laser': laser sheet used to correct image
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if nargin < 8
+    streaks = false;
+    synthetic_laser = false;
+end
+if nargin < 9
+    synthetic_laser = false;
+end
+if nargin < 14
+    resize = 1;
+end
+if nargin < 15
+    fftPad = false;
+end
+
+%filtWindow(image,window_size,filtType,sigma)
+%fitler image window by window, filtType 1 is a modified low pass fitler,
+%filtType 2 is a guassian filter, which requires an additional agrument sigma.
+%rhoI = filtWindow(rhoI,5,1);
+%rhoI = filtWindow(rhoI,5,1.0,2);
+% map into a space where rays are parallel along vertical direction. 
+[back,ind] = mapTo(back,x_map_file,y_map_file,h,w);
+rhoIfilt = conv2(rhoI, ones(100,100)/100^2, 'same');
+rRho = repmat(mean(flipud(rhoI),2),1,w);
+rBack = repmat(mean(flipud(back),2),1,w);
+rhoI = double(mapTo(rhoI,x_map_file,y_map_file,h,w));
+mapped = flipud(rhoI);
+mapped(ind) = 0;
+rhoIfilt = double(mapTo(rhoIfilt,x_map_file,y_map_file,h,w));
+
+%ind = flipud(ind);
+rhoI = flipud(rhoI);
+back = flipud(back);
+rhoIfilt = flipud(rhoIfilt);
+
+if (synthetic_laser == true)
+    j0 = 1;
+    j1 = 20; 
+
+    bottom = mean(back(j0:j1,:),1);
+    %bottomR = mean(rhoI(j0:j1,:),1);
+    
+    
+%    uncomment below if you desire to use a fitted profile rather than raw data to initalise the laser sheet.         
+    %x = linspace(1,length(bottom),length(bottom));
+    %f = fit(x.',bottom.','fourier8'); 
+%    figure;
+%    plot(f,x,bottom);
+%     
+%     bottom = f(x);
+
+    % Sheet reconstructions draws from principles in section "5.6.3.2 Light
+    % Induced Fluorescence (LIF)" in Digiflow User Guide Version 4.0
+    % January 2017 
+    
+    %initalise array for synthetic sheet
+    laser = zeros(size(rhoI)); 
+    laser(1,:) = bottom/C0; 
+    
+    %intialise array for coefficents. 
+    % calculated using equation (4) from section of manual refrenced above.
+    % \alpha = - 1/(C0*p) (dp/ds)
+    % p is the background image, C0 concentration, s is the ray path this
+    % case that is just along vertical due to mapping
+    % calculated using central difference
+    
+    alpha = zeros(size(rhoI));
+    alpha(1,:) =  -1.0*(back(2,:)- back(1,:))./(C0*back(1,:)+1e-5);
+
+    for j = 2:h-1 
+            alpha(j,:) = -1.0*(back(j+1,:)- back(j-1,:))./(2.0*C0*back(j,:)+1e-5);			
+    end
+
+    alpha(h,:) =  -1.0*(back(h,:)- back(h-1,:))./(C0*back(h,:)+1e-5);
+    alpha = filloutliers(alpha,'center','movmedian',31);
+    %recontruct laser using information from current frame
+    %this allows us to account for the position of the dye in the image
+    laserRhoI = laser;
+    %laserRhoI(1,:) = bottomR;
+    %rhoIfilt = imgaussfilt(rhoI,2);
+    disp(mean(alpha(:)))
+
+    for j = 2:h
+        % laserRhoI(j,:) =  laserRhoI(j-1,:) - alpha(j,:).*rhoIfilt(j,:);
+        % laser(j,:) =  laser(j-1,:) - alpha(j,:).*back(j,:);
+        laserRhoI(j,:) =  laserRhoI(j-1,:) - mean(alpha(:)).*rhoIfilt(j,:);
+        laser(j,:) =  laser(j-1,:) - mean(alpha(:)).*back(j,:);
+    end
+    %Apply streak filter to the laser sheet to remove any defects 
+    laserRhoI(ind) = rBack(ind)/C0;
+    laser(ind) = rBack(ind)/C0;
+    laser = RemoveStripesVertical(laser,Level,'db42',Sigma,LS,LE,resize,fftPad);
+    laserRhoI = RemoveStripesVertical(laserRhoI,Level,'db42',Sigma,LS,LE,resize,fftPad);
+else
+      % in this case instead of reconstructing the sheet using information
+      % from the current frame we just use the background image to correct
+      % for illumination 
+      laser = back;
+end
+
+if (streaks == true)
+    %Here we apply streak filter to the input data
+    rhoI(ind) = rRho(ind);
+    rhoI = RemoveStripesVertical(rhoI,Level,'db42',Sigma,LS,LE,resize,fftPad);
+    streakRM = rhoI;
+    streakRM(ind) = 0;
+    streakRM = flipud(streakRM);
+end
+
+laser = flipud(laser);
+laserRhoI = flipud(laserRhoI);
+laser(laser<1e-5) = 1e-5;
+laserRhoI(laserRhoI<1e-5) = 1e-5;
+rhoI = flipud(rhoI);
+back(ind) = rBack(ind); 
+back = RemoveStripesVertical(back,Level,'db42',Sigma,LS,LE,resize,fftPad);
+back = flipud(back);
+corr = C0*(rhoI.*laser)./(laserRhoI.*back); %eq 9 pg 100
+%corr = C0*rhoI./laser; %eq 7 on pg 99
+corr(corr>10)=10;
+corr(corr<0) = 0;
+illFix = corr;
+illFix(flipud(ind)) = 0;
+corr = mapTo(corr,x_map_file,y_map_file,h,w,true); 
+corr(corr>1)= 1;
+corr(corr<0) = 0;
+corr = corr./(2.0*mean(corr(:)));
+corr(corr>1) = 1;
+end
