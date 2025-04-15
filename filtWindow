@@ -1,0 +1,48 @@
+function result_image = filtWindow(image,window_size,filtType,sigma)
+
+if nargin < 4
+    sigma = 1;
+end
+
+if filtType == 2
+    % This type is currently using matlab default gaussian image filter but
+    % uncomment like 15 if user desires a more specialised kernel. 
+    
+    % Create the Gaussian kernel id desired
+    kernel = fspecial('gaussian', [window_size window_size], sigma);
+    
+    
+    result_image = zeros(size(image));
+    for i = 1:size(image, 1) - window_size + 1
+        for j = 1:size(image, 2) - window_size + 1
+            window = image(i:i + window_size - 1, j:j + window_size - 1);
+            %filtered_window = conv2(window, kernel, 'valid');
+            filtered_window = imguassfilt(window);
+            result_image(i:i + window_size - 1, j:j + window_size - 1) = ...
+                result_image(i:i + window_size - 1, j:j + window_size - 1) + filtered_window;
+        end
+    end
+    result_image = (result_image / (window_size^2));
+end 
+
+if filtType == 1
+    result_image = zeros(size(image));
+    for i = 1:size(image, 1) - window_size + 1
+        for j = 1:size(image, 2) - window_size + 1
+            window = image(i:i + window_size - 1, j:j + window_size - 1);
+            sorted = sort(window(:));
+            meanValue = mean(sorted(1:int32((window_size^2))));
+            filtered_window = window;
+            filtered_window(window>meanValue) = meanValue;
+            result_image(i:i + window_size - 1, j:j + window_size - 1) = ...
+                result_image(i:i + window_size - 1, j:j + window_size - 1) + filtered_window;
+        end
+    end
+    result_image = (result_image / (window_size^2));
+end 
+
+
+% Display the original and filtered images
+% figure;
+% subplot(1, 2, 1), imshow(image), title('Original Image');
+% subplot(1, 2, 2), imshow(result_image), title('Filtered Image');
