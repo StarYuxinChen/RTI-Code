@@ -37,8 +37,8 @@ backDark = DyeDark - blackDark;
 tic
 %initialise buffer
 buffLen = 50;
-startFrame = 100;
-endFrame = 101;
+startFrame = 1;
+endFrame = 100;
 nBuff = ceil((endFrame - startFrame)/buffLen);
 p1 = df_dfm_info(fIn1);
 f1 = fopen(fIn1,'r');
@@ -69,13 +69,15 @@ for n = 1:nBuff
         end
         rhoIRaw = rhoI;
         %corr(raw plif, background, x map to laser sheet space, y map (equiv), width, height, have streak, want synthetic laser sheet)
-        %corr = correct_Plif_MI(rhoI,back,x_map_file,y_map_file,w,h,C0,true,true,200,5,1,8,4);
-        [corr,mapped,streakRM,illFix] = correct_Plif_MI_new(rhoI,back,x_map_file,y_map_file,w,h,C0,true,true,200,20,1,10,4);
+        corr = correct_Plif_MI(rhoI,back,x_map_file,y_map_file,w,h,C0,true,true,200,5,1,8,4);
+        %[corr,mapped,streakRM,illFix] = correct_Plif_MI_new(rhoI,back,x_map_file,y_map_file,w,h,C0,true,true,200,20,1,10,4);
         %imwrite(corr,"..\outputs\strat[20250317-3]_"+i+".tif");
     end
 end
 toc
 fclose('all');
+
+save('trail.mat', 'corr_stack', '-v7.3');
 
 X = linspace(0,w-1,w);
 Y = linspace(h-1,0,h);
@@ -90,64 +92,64 @@ axis off;
 ax=gca;
 %exportgraphics(ax,"corr.jpg",'BackgroundColor','none')
 
-X = linspace(0,w-1,w);
-Y = linspace(h-1,0,h);
-figure;
-imagesc(X,Y,rhoIRaw);
-colormap(flipud(jet));
-%colorbar;
-caxis([0 1]);
-pbaspect([1 h/w 1]);
-axis xy; 
-axis off;
-ax=gca;
+% X = linspace(0,w-1,w);
+% Y = linspace(h-1,0,h);
+% figure;
+% imagesc(X,Y,rhoIRaw);
+% colormap(flipud(jet));
+% %colorbar;
+% caxis([0 1]);
+% pbaspect([1 h/w 1]);
+% axis xy; 
+% axis off;
+% ax=gca;
 %exportgraphics(ax,"input.jpg",'BackgroundColor','none')
 
-X = linspace(0,w-1,w);
-Y = linspace(h-1,0,h);
-figure;
-imagesc(X,Y,flipud(mapped));
-colormap(flipud(jet));
-%colorbar;
-%caxis([0 1]);
-pbaspect([1 h/w 1]);
-axis xy; 
-axis off;
-ax=gca;
-%exportgraphics(ax,"inputMapped.jpg",'BackgroundColor','none')
-
-X = linspace(0,w-1,w);
-Y = linspace(h-1,0,h);
-figure;
-imagesc(X,Y,streakRM);
-colormap(flipud(jet));
-%colorbar;
-caxis([0 1]);
-pbaspect([1 h/w 1]);
-axis xy; 
-axis off;
-ax=gca;
-%exportgraphics(ax,"StreakRm.jpg",'BackgroundColor','none')
-
-X = linspace(0,w-1,w);
-Y = linspace(h-1,0,h);
-figure;
-imagesc(X,Y,illFix);
-colormap(flipud(jet));
-colorbar;
-caxis([0 1]);
-pbaspect([1 h/w 1]);
-axis xy; 
-axis off;
-ax=gca;
-%exportgraphics(ax,"corrMapped.jpg",'BackgroundColor','none')
-
-rhoProf = mean(corr(:,round(2*w/5):round(3*w/5)),2);
-z = linspace(0,h-1,h);
-figure;
-h1 = axes;
-plot(fliplr(rhoProf),z);
-set(h1,'Ydir', 'reverse')
+% X = linspace(0,w-1,w);
+% Y = linspace(h-1,0,h);
+% figure;
+% imagesc(X,Y,flipud(mapped));
+% colormap(flipud(jet));
+% %colorbar;
+% %caxis([0 1]);
+% pbaspect([1 h/w 1]);
+% axis xy; 
+% axis off;
+% ax=gca;
+% %exportgraphics(ax,"inputMapped.jpg",'BackgroundColor','none')
+% 
+% X = linspace(0,w-1,w);
+% Y = linspace(h-1,0,h);
+% figure;
+% imagesc(X,Y,streakRM);
+% colormap(flipud(jet));
+% %colorbar;
+% caxis([0 1]);
+% pbaspect([1 h/w 1]);
+% axis xy; 
+% axis off;
+% ax=gca;
+% %exportgraphics(ax,"StreakRm.jpg",'BackgroundColor','none')
+% 
+% X = linspace(0,w-1,w);
+% Y = linspace(h-1,0,h);
+% figure;
+% imagesc(X,Y,illFix);
+% colormap(flipud(jet));
+% colorbar;
+% caxis([0 1]);
+% pbaspect([1 h/w 1]);
+% axis xy; 
+% axis off;
+% ax=gca;
+% %exportgraphics(ax,"corrMapped.jpg",'BackgroundColor','none')
+% 
+% rhoProf = mean(corr(:,round(2*w/5):round(3*w/5)),2);
+% z = linspace(0,h-1,h);
+% figure;
+% h1 = axes;
+% plot(fliplr(rhoProf),z);
+% set(h1,'Ydir', 'reverse')
 
 
 
