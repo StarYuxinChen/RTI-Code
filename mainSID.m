@@ -72,6 +72,7 @@ for n = 1:nBuff
         corr = correct_Plif_MI(rhoI,back,x_map_file,y_map_file,w,h,C0,true,true,200,5,1,8,4);
         %[corr,mapped,streakRM,illFix] = correct_Plif_MI_new(rhoI,back,x_map_file,y_map_file,w,h,C0,true,true,200,20,1,10,4);
         %imwrite(corr,"..\outputs\strat[20250317-3]_"+i+".tif");
+        corr_stack(:,:,i - startFrame + 1) = corr;
     end
 end
 toc
